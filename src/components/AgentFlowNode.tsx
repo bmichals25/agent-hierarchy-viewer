@@ -8,12 +8,18 @@ interface AgentNodeProps {
   data: {
     agent: Agent;
     isSelected: boolean;
+    isHighlighted: boolean;
+    isHovered: boolean;
+    isDimmed: boolean;
     onClick: () => void;
+    onHover: (hover: boolean) => void;
   };
 }
 
 export const AgentNode = memo(function AgentNode({ data }: AgentNodeProps) {
-  const { agent, isSelected, onClick } = data;
+  const { agent, isSelected, isHighlighted, isHovered, isDimmed, onClick, onHover } = data;
+
+  const showGlow = isSelected || isHighlighted;
 
   return (
     <>
@@ -29,24 +35,34 @@ export const AgentNode = memo(function AgentNode({ data }: AgentNodeProps) {
       {/* Node content */}
       <div
         onClick={onClick}
+        onMouseEnter={() => onHover(true)}
+        onMouseLeave={() => onHover(false)}
         className={`
           px-4 py-3 rounded-xl cursor-pointer transition-all duration-200
-          border-2 min-w-[160px] backdrop-blur-sm
+          border-2 min-w-[160px] backdrop-blur-sm relative
           ${isSelected
-            ? 'border-blue-500 shadow-lg shadow-blue-500/30 scale-105'
-            : 'border-transparent hover:border-white/20 hover:scale-102'
+            ? 'border-blue-400 scale-105'
+            : isHighlighted
+              ? 'border-white/40'
+              : isHovered
+                ? 'border-white/30 scale-102'
+                : 'border-transparent hover:border-white/20'
           }
+          ${isDimmed ? 'opacity-30' : 'opacity-100'}
         `}
         style={{
-          backgroundColor: isSelected ? `${agent.color}30` : `${agent.color}15`,
-          boxShadow: isSelected ? `0 0 30px ${agent.color}40` : 'none',
+          backgroundColor: showGlow ? `${agent.color}30` : `${agent.color}15`,
+          boxShadow: showGlow ? `0 0 30px ${agent.color}50` : 'none',
         }}
       >
         <div className="flex items-center gap-3">
           {/* Icon */}
           <div
-            className="w-10 h-10 rounded-lg flex items-center justify-center text-xl flex-shrink-0"
-            style={{ backgroundColor: `${agent.color}30` }}
+            className="w-10 h-10 rounded-lg flex items-center justify-center text-xl flex-shrink-0 transition-transform"
+            style={{
+              backgroundColor: `${agent.color}30`,
+              transform: isHovered ? 'scale(1.1)' : 'scale(1)',
+            }}
           >
             {agent.icon}
           </div>
@@ -64,9 +80,20 @@ export const AgentNode = memo(function AgentNode({ data }: AgentNodeProps) {
 
         {/* Team color indicator */}
         <div
-          className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-8 h-1 rounded-full"
-          style={{ backgroundColor: agent.color }}
+          className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-8 h-1 rounded-full transition-all"
+          style={{
+            backgroundColor: agent.color,
+            width: isSelected ? '50%' : '30%',
+          }}
         />
+
+        {/* Selection ring animation */}
+        {isSelected && (
+          <div
+            className="absolute inset-0 rounded-xl border-2 animate-pulse pointer-events-none"
+            style={{ borderColor: agent.color }}
+          />
+        )}
       </div>
 
       {/* Output handle (to children) */}

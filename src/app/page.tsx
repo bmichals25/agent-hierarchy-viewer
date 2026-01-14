@@ -1,80 +1,208 @@
 'use client';
 
-import { useState } from 'react';
-import { Agent, getAgentById, agents, teamNames } from '@/lib/agents';
+import { useState, useMemo } from 'react';
+import { Agent, getAgentById, agents, teamNames, getTeamColor } from '@/lib/agents';
 import { FlowChart } from '@/components/FlowChart';
+import { HoverCard } from '@/components/HoverCard';
 
 export default function Home() {
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
+  const [hoveredAgent, setHoveredAgent] = useState<Agent | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilters, setActiveFilters] = useState<Set<Agent['team']>>(new Set());
 
   const handleSelectAgent = (agent: Agent) => {
     setSelectedAgent(agent);
   };
 
+  const toggleFilter = (team: Agent['team']) => {
+    setActiveFilters(prev => {
+      const next = new Set(prev);
+      if (next.has(team)) {
+        next.delete(team);
+      } else {
+        next.add(team);
+      }
+      return next;
+    });
+  };
+
+  const clearFilters = () => {
+    setActiveFilters(new Set());
+    setSearchQuery('');
+  };
+
   const reportsToAgent = selectedAgent?.reportsTo ? getAgentById(selectedAgent.reportsTo) : null;
+
+  // Search results for dropdown
+  const searchResults = useMemo(() => {
+    if (!searchQuery) return [];
+    const query = searchQuery.toLowerCase();
+    return agents.filter(a =>
+      a.name.toLowerCase().includes(query) ||
+      a.role.toLowerCase().includes(query)
+    ).slice(0, 5);
+  }, [searchQuery]);
+
+  const teams: Agent['team'][] = ['leadership', 'engineering', 'product', 'design', 'support'];
 
   return (
     <div className="h-screen flex flex-col bg-[#0a0a0a] overflow-hidden">
       {/* Header */}
-      <header className="flex-shrink-0 border-b border-[#222] bg-[#0f0f0f] px-6 py-3 z-10">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+      <header className="flex-shrink-0 border-b border-[#222] bg-[#0f0f0f] px-6 py-3 z-20">
+        <div className="flex items-center justify-between gap-6">
+          {/* Logo */}
+          <div className="flex items-center gap-3 flex-shrink-0">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-xl shadow-lg shadow-blue-500/20">
               🤖
             </div>
             <div>
               <h1 className="text-lg font-bold text-white">Agent Hierarchy</h1>
-              <p className="text-xs text-gray-500">18 Agents | v2.0 | Click nodes to explore</p>
+              <p className="text-xs text-gray-500">18 Agents | v2.0</p>
             </div>
           </div>
 
-          {/* Legend */}
-          <div className="flex items-center gap-4 text-xs">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-[#8b5cf6]" />
-              <span className="text-gray-400">Leadership</span>
+          {/* Search */}
+          <div className="relative flex-1 max-w-md">
+            <div className="relative">
+              <svg
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search agents..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-[#1a1a1a] border border-[#333] rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 hover:text-white"
+                >
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-[#ef4444]" />
-              <span className="text-gray-400">Engineering</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-[#06b6d4]" />
-              <span className="text-gray-400">Product</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-[#ec4899]" />
-              <span className="text-gray-400">Design & QA</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-[#f59e0b]" />
-              <span className="text-gray-400">Support</span>
-            </div>
+
+            {/* Search Results Dropdown */}
+            {searchResults.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-[#1a1a1a] border border-[#333] rounded-lg overflow-hidden shadow-xl z-50">
+                {searchResults.map(agent => (
+                  <button
+                    key={agent.id}
+                    onClick={() => {
+                      handleSelectAgent(agent);
+                      setSearchQuery('');
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors text-left"
+                  >
+                    <span className="text-lg">{agent.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-white truncate">{agent.name}</div>
+                      <div className="text-xs text-gray-500 truncate">{agent.role}</div>
+                    </div>
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: agent.color }} />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Team Filters */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className="text-xs text-gray-500 mr-1">Filter:</span>
+            {teams.map(team => {
+              const isActive = activeFilters.has(team);
+              const color = getTeamColor(team);
+              return (
+                <button
+                  key={team}
+                  onClick={() => toggleFilter(team)}
+                  className={`
+                    px-3 py-1.5 rounded-lg text-xs font-medium transition-all
+                    ${isActive
+                      ? 'text-white'
+                      : 'text-gray-400 hover:text-white bg-white/5 hover:bg-white/10'
+                    }
+                  `}
+                  style={{
+                    backgroundColor: isActive ? `${color}30` : undefined,
+                    borderColor: isActive ? color : 'transparent',
+                    border: '1px solid',
+                  }}
+                >
+                  {teamNames[team].replace(' Team', '').replace('VP ', '')}
+                </button>
+              );
+            })}
+            {(activeFilters.size > 0 || searchQuery) && (
+              <button
+                onClick={clearFilters}
+                className="px-2 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                Clear
+              </button>
+            )}
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative">
         {/* Flowchart */}
         <div className="flex-1 relative">
           <FlowChart
             onSelectAgent={handleSelectAgent}
             selectedId={selectedAgent?.id ?? null}
+            searchQuery={searchQuery}
+            activeFilters={activeFilters}
+            hoveredAgent={hoveredAgent}
+            onHoverAgent={setHoveredAgent}
           />
+
+          {/* Hover Card */}
+          <HoverCard agent={hoveredAgent} />
+
+          {/* Instructions overlay when nothing selected */}
+          {!selectedAgent && !hoveredAgent && (
+            <div className="absolute bottom-4 right-4 bg-[#151515]/90 border border-[#333] rounded-lg px-4 py-3 text-sm text-gray-400 backdrop-blur-sm">
+              <div className="flex items-center gap-2 mb-1">
+                <kbd className="px-2 py-0.5 bg-white/10 rounded text-xs">Scroll</kbd>
+                <span>to zoom</span>
+              </div>
+              <div className="flex items-center gap-2 mb-1">
+                <kbd className="px-2 py-0.5 bg-white/10 rounded text-xs">Drag</kbd>
+                <span>to pan</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <kbd className="px-2 py-0.5 bg-white/10 rounded text-xs">Click</kbd>
+                <span>to select agent</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Detail Panel */}
-        <div className={`
-          w-96 bg-[#111] border-l border-[#222] overflow-y-auto transition-all duration-300
-          ${selectedAgent ? 'translate-x-0' : 'translate-x-full absolute right-0 top-0 bottom-0'}
-        `}>
-          {selectedAgent ? (
-            <div className="p-6">
+        <div
+          className={`
+            w-96 bg-[#111] border-l border-[#222] overflow-y-auto transition-all duration-300 flex-shrink-0
+            ${selectedAgent ? 'translate-x-0' : 'translate-x-full w-0 border-l-0'}
+          `}
+        >
+          {selectedAgent && (
+            <div className="p-6 animate-fade-in">
               {/* Close button */}
               <button
                 onClick={() => setSelectedAgent(null)}
-                className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
+                className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 transition-colors z-10"
               >
                 <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -193,13 +321,6 @@ export default function Home() {
                   </div>
                 </div>
               )}
-            </div>
-          ) : (
-            <div className="h-full flex items-center justify-center text-gray-500 p-6">
-              <div className="text-center">
-                <div className="text-4xl mb-4">👈</div>
-                <p>Click an agent node to view details</p>
-              </div>
             </div>
           )}
         </div>
